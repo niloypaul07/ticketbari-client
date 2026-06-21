@@ -1,0 +1,90 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-brand: 44 126 248;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply font-sans antialiased;
+  }
+}
+
+@layer components {
+  .section-title {
+    @apply text-3xl md:text-4xl font-bold text-center mb-2;
+  }
+  .section-subtitle {
+    @apply text-center text-default-500 mb-10 max-w-xl mx-auto;
+  }
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-brand-500 to-purple-500 bg-clip-text text-transparent;
+  }
+  .glass-card {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl;
+  }
+}
+
+/* Swiper custom styles */
+.hero-swiper .swiper-pagination {
+  bottom: 1.25rem !important;
+  z-index: 20;
+}
+
+.hero-swiper .swiper-pagination-bullet {
+  background: rgba(255, 255, 255, 0.45);
+  opacity: 1;
+  width: 8px;
+  height: 8px;
+}
+
+.hero-swiper .swiper-pagination-bullet-active {
+  @apply bg-white !important;
+  width: 24px;
+  border-radius: 9999px;
+}
+
+.swiper-pagination-bullet-active {
+  @apply bg-brand-500 !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-default-100;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-brand-400 rounded-full;
+}
+
+/* Countdown digits */
+.countdown-digit {
+  @apply text-2xl font-bold tabular-nums;
+}
+
+/* Loading skeleton pulse */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.dark .shimmer {
+  background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
+  background-size: 200% 100%;
+}
