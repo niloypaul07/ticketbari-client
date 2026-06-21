@@ -1,69 +1,83 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { MongoClient } from "mongodb";
-import dns from "dns";
 
-dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
-if (dns.setDefaultResultOrder) dns.setDefaultResultOrder("ipv4first");
+const globalForAuth = globalThis;
 
-const globalForMongo = globalThis;
-const mongoUri = process.env.MONGODB_URI || "";
-const client =
-  globalForMongo._mongoClient ??
-  new MongoClient(mongoUri, { family: 4, serverSelectionTimeoutMS: 30000 });
-if (!globalForMongo._mongoClient) globalForMongo._mongoClient = client;
+function createAuth() {
+  const mongoUri = process.env.MONGODB_URI;
+  const secret = process.env.BETTER_AUTH_SECRET;
 
-export const auth = betterAuth({
-  secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL,
+  if (!mongoUri) {
+    throw new Error("MONGODB_URI is not set");
+  }
+  if (!secret) {
+    throw new Error("BETTER_AUTH_SECRET is not set");
+  }
 
-  database: mongodbAdapter(client.db("ticketbari")),
+  const client =
+    globalForAuth._mongoClient ??
+    new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
+  if (!globalForAuth._mongoClient) globalForAuth._mongoClient = client;
 
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: false,
-  },
+  const baseURL =
+    process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      enabled: Boolean(
-        process.env.GOOGLE_CLIENT_ID &&
-          process.env.GOOGLE_CLIENT_ID !== "your_google_client_id"
-      ),
-    },
-  },
-
-  session: {
-    expiresIn: 60 * 60 * 24 * 7,
-    updateAge: 60 * 60 * 24,
-    cookieCache: {
-      enabled: true,
-      maxAge: 60 * 5,
-    },
-  },
-
-  user: {
-    additionalFields: {
-      role: {
-        type: "string",
-        defaultValue: "user",
-        required: false,
-        input: false,
-      },
-      isFraud: {
-        type: "boolean",
-        defaultValue: false,
-        required: false,
-        input: false,
-      },
-    },
-  },
-
-  trustedOrigins: (process.env.CLIENT_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000")
+  const trustedOrigins = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000")
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean)
-    .concat([process.env.BETTER_AUTH_URL, process.env.NEXT_PUBLIC_APP_URL].filter(Boolean)),
-});
+    .concat([process.env.BETTER_AUTH_URL, process.env.NEXT_PUBLIC_APP_URL].filter(Boolean));
+
+  return betterAuth({
+    secret,
+    baseURL,
+    database: mongodbAdapter(client.db("ticketbari")),
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: false,
+    },
+    socialProviders: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        enabled: Boolean(
+          process.env.GOOGLE_CLIENT_ID &&
+            process.env.GOOGLE_CLIENT_ID !== "your_google_client_id"
+        ),
+      },
+    },
+    session: {
+      expiresIn: 60 * 60 * 24 * 7,
+      updateAge: 60 * 60 * 24,
+      cookieCache: {
+        enabled: true,
+        maxAge: 60 * 5,
+      },
+    },
+    user: {
+      additionalFields: {
+        role: {
+          type: "string",
+          defaultValue: "user",
+          required: false,
+          input: false,
+        },
+        isFraud: {
+          type: "boolean",
+          defaultValue: false,
+          required: false,
+          input: false,
+        },
+      },
+    },
+    trustedOrigins,
+  });
+}
+
+export function getAuth() {
+  if (!globalForAuth._betterAuth) {
+    globalForAuth._betterAuth = createAuth();
+  }
+  return globalForAuth._betterAuth;
+}

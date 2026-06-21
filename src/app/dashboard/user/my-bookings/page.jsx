@@ -1,93 +1,57 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { Card, CardBody, CardFooter, Chip, Button, Modal, ModalContent, ModalHeader, ModalBody, useDisclosure } from "@heroui/react";
+import { Card, CardBody, CardFooter, Chip, Button } from "@heroui/react";
 import { useAxiosSecure } from "@/hooks/useAxiosSecure";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import CountdownTimer from "@/components/CountdownTimer";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import toast from "react-hot-toast";
 import Image from "next/image";
 import { format } from "date-fns";
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-
 const statusColor = { pending: "warning", accepted: "success", rejected: "danger", paid: "primary" };
-
-function PaymentForm({ clientSecret, bookingId, amount, axiosSecure, onSuccess, onClose }) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [paying, setPaying] = useState(false);
-
-  const handlePay = async () => {
-    if (!stripe || !elements) return;
-    setPaying(true);
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: window.location.href },
-      redirect: "if_required",
-    });
-    if (error) {
-      toast.error(error.message);
-      setPaying(false);
-      return;
-    }
-    if (paymentIntent.status === "succeeded") {
-      await axiosSecure.post("/payments/confirm", {
-        bookingId,
-        transactionId: paymentIntent.id,
-        amount,
-      });
-      toast.success("Payment successful! 🎉");
-      onSuccess();
-      onClose();
-    }
-    setPaying(false);
-  };
-
-  return (
-    <div className="flex flex-col gap-4">
-      <PaymentElement />
-      <Button
-        className="bg-gradient-to-r from-brand-500 to-purple-600 text-white font-bold"
-        isLoading={paying}
-        onPress={handlePay}
-        fullWidth
-      >
-        Pay ৳{amount}
-      </Button>
-    </div>
-  );
-}
 
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [clientSecret, setClientSecret] = useState("");
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const [payingId, setPayingId] = useState(null);
   const axiosSecure = useAxiosSecure();
 
   const fetchBookings = useCallback(async () => {
     try {
       const res = await axiosSecure.get("/bookings/my");
       setBookings(res.data);
-    } catch { toast.error("Failed to load bookings"); }
-    finally { setLoading(false); }
+    } catch {
+      toast.error("Failed to load bookings");
+    } finally {
+      setLoading(false);
+    }
   }, [axiosSecure]);
 
-  useEffect(() => { fetchBookings(); }, [fetchBookings]);
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
   const handlePayNow = async (booking) => {
     const departed = new Date(booking.departureDateTime) < new Date();
-    if (departed) { toast.error("Departure time has passed"); return; }
+    if (departed) {
+      toast.error("Departure time has passed");
+      return;
+    }
+
+    setPayingId(booking._id);
     try {
-      const res = await axiosSecure.post("/payments/create-payment-intent", { bookingId: booking._id });
-      setClientSecret(res.data.clientSecret);
-      setSelectedBooking(booking);
-      onOpen();
+      const res = await axiosSecure.post("/payments/create-checkout-session", {
+        bookingId: booking._id,
+      });
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+        return;
+      }
+      toast.error("Could not start checkout");
     } catch (err) {
       toast.error(err.response?.data?.error || "Payment init failed");
+    } finally {
+      setPayingId(null);
     }
   };
 
@@ -118,7 +82,9 @@ export default function MyBookingsPage() {
                 </div>
                 <CardBody className="px-4 py-3 gap-2">
                   <h3 className="font-bold text-sm line-clamp-1">{b.ticketTitle}</h3>
-                  <p className="text-xs text-default-500">{b.from} → {b.to}</p>
+                  <p className="text-xs text-default-500">
+                    {b.from} → {b.to}
+                  </p>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-default-500">Qty: {b.quantity}</span>
                     <span className="font-bold text-brand-500">৳{b.totalPrice?.toLocaleString()}</span>
@@ -127,7 +93,9 @@ export default function MyBookingsPage() {
                     {format(new Date(b.departureDateTime), "dd MMM yyyy, hh:mm a")}
                   </p>
                   <div className="flex items-center justify-between mt-1">
-                    <Chip color={statusColor[b.status]} variant="flat" size="sm" className="capitalize">{b.status}</Chip>
+                    <Chip color={statusColor[b.status]} variant="flat" size="sm" className="capitalize">
+                      {b.status}
+                    </Chip>
                     {b.status !== "rejected" && !departed && (
                       <CountdownTimer departureDateTime={b.departureDateTime} compact />
                     )}
@@ -139,6 +107,7 @@ export default function MyBookingsPage() {
                       fullWidth
                       size="sm"
                       isDisabled={departed}
+                      isLoading={payingId === b._id}
                       className="bg-gradient-to-r from-brand-500 to-purple-600 text-white font-semibold"
                       onPress={() => handlePayNow(b)}
                     >
@@ -151,31 +120,6 @@ export default function MyBookingsPage() {
           })}
         </div>
       )}
-
-      {/* Stripe Payment Modal */}
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="lg">
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader>Complete Payment</ModalHeader>
-              <ModalBody className="pb-6">
-                {clientSecret && (
-                  <Elements stripe={stripePromise} options={{ clientSecret }}>
-                    <PaymentForm
-                      clientSecret={clientSecret}
-                      bookingId={selectedBooking?._id}
-                      amount={selectedBooking?.totalPrice}
-                      axiosSecure={axiosSecure}
-                      onSuccess={fetchBookings}
-                      onClose={onClose}
-                    />
-                  </Elements>
-                )}
-              </ModalBody>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
     </div>
   );
 }

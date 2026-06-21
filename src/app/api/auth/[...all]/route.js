@@ -1,10 +1,22 @@
-import { auth } from "@/lib/auth";
 import { toNextJsHandler } from "better-auth/next-js";
-import dns from "dns";
+import { getAuth } from "@/lib/auth";
 
-console.log("DNS Servers in Next.js route:", dns.getServers());
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-const handler = toNextJsHandler(auth);
-export const GET = handler.GET;
-export const POST = handler.POST;
+let handler;
 
+function getHandler() {
+  if (!handler) {
+    handler = toNextJsHandler(getAuth());
+  }
+  return handler;
+}
+
+export async function GET(request) {
+  return getHandler().GET(request);
+}
+
+export async function POST(request) {
+  return getHandler().POST(request);
+}
