@@ -1,22 +1,17 @@
-import { toNextJsHandler } from "better-auth/next-js";
-import { getAuth } from "@/lib/auth";
-
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-let handler;
-
-function getHandler() {
-  if (!handler) {
-    handler = toNextJsHandler(getAuth());
-  }
-  return handler;
+async function handleAuthRequest(request, method) {
+  const { getAuth } = await import("@/lib/auth");
+  const { toNextJsHandler } = await import("better-auth/next-js");
+  const handler = toNextJsHandler(getAuth());
+  return handler[method](request);
 }
 
-export async function GET(request) {
-  return getHandler().GET(request);
+export function GET(request) {
+  return handleAuthRequest(request, "GET");
 }
 
-export async function POST(request) {
-  return getHandler().POST(request);
+export function POST(request) {
+  return handleAuthRequest(request, "POST");
 }

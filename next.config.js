@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ["mongodb"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "i.ibb.co" },
