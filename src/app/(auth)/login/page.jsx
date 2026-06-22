@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input, Button, Divider } from "@heroui/react";
 import { FiMail, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
@@ -8,7 +8,8 @@ import { useAuth } from "@/context/AuthContext";
 import AuthShell, { authInputClassNames, authGoogleButtonClass, authSubmitButtonClass } from "@/components/auth/AuthShell";
 import toast from "react-hot-toast";
 
-export default function LoginPage() {
+// Inner component that uses useSearchParams — must be inside <Suspense>
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -19,8 +20,11 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
 
+  // If already logged in, redirect immediately
   useEffect(() => {
-    if (!authLoading && !syncing && user) router.replace(callbackUrl);
+    if (!authLoading && !syncing && user) {
+      router.replace(callbackUrl);
+    }
   }, [user, authLoading, syncing, router, callbackUrl]);
 
   const handleSubmit = async (e) => {
@@ -114,5 +118,14 @@ export default function LoginPage() {
         </Button>
       </form>
     </AuthShell>
+  );
+}
+
+// Page wrapper with Suspense — required by Next.js App Router for useSearchParams
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }
