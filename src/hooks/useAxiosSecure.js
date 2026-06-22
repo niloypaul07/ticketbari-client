@@ -1,9 +1,15 @@
 import axios from "axios";
-import { useMemo } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 
 export function useAxiosSecure() {
-  const { token, logout, syncing, loading } = useAuth();
+  const auth = useAuth();
+  
+  // Keep auth state in a ref so the axiosSecure instance reference remains 100% stable
+  const authRef = useRef(auth);
+  useEffect(() => {
+    authRef.current = auth;
+  }, [auth]);
 
   const axiosSecure = useMemo(() => {
     const instance = axios.create({
@@ -11,6 +17,7 @@ export function useAxiosSecure() {
     });
 
     instance.interceptors.request.use((config) => {
+      const token = authRef.current.token || sessionStorage.getItem("tb_token");
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -20,6 +27,7 @@ export function useAxiosSecure() {
     instance.interceptors.response.use(
       (res) => res,
       (err) => {
+        const { syncing, loading, logout } = authRef.current;
         // Only logout on explicit 401 after auth is fully settled (not during sync/load)
         if (err.response?.status === 401 && !syncing && !loading) {
           logout();
@@ -29,7 +37,8 @@ export function useAxiosSecure() {
     );
 
     return instance;
-  }, [token, logout, syncing, loading]);
+  }, []); // Empty array ensures stable reference
 
   return axiosSecure;
 }
+
