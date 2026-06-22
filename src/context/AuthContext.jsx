@@ -121,8 +121,8 @@ export function AuthProvider({ children }) {
     return loginResult;
   };
 
-  const loginWithGoogle = async () => {
-    await signIn.social({ provider: "google", callbackURL: "/" });
+  const loginWithGoogle = async (callbackURL = "/") => {
+    await signIn.social({ provider: "google", callbackURL });
   };
 
   const logout = async () => {

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input, Button, Divider } from "@heroui/react";
 import { FiMail, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
@@ -16,10 +16,12 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const { login, loginWithGoogle, user, loading: authLoading, syncing } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
 
   useEffect(() => {
-    if (!authLoading && !syncing && user) router.replace("/");
-  }, [user, authLoading, syncing, router]);
+    if (!authLoading && !syncing && user) router.replace(callbackUrl);
+  }, [user, authLoading, syncing, router, callbackUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,7 +29,7 @@ export default function LoginPage() {
     try {
       await login({ email, password });
       toast.success("Welcome back!");
-      router.replace("/");
+      router.replace(callbackUrl);
     } catch (err) {
       toast.error(err.message || "Invalid credentials");
     } finally {
@@ -38,7 +40,7 @@ export default function LoginPage() {
   const handleGoogle = async () => {
     setGoogleLoading(true);
     try {
-      await loginWithGoogle();
+      await loginWithGoogle(callbackUrl);
     } catch {
       toast.error("Google sign-in failed");
       setGoogleLoading(false);

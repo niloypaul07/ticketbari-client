@@ -56,7 +56,10 @@ export default function TicketDetailsPage() {
   const bookDisabled = departed || soldOut;
 
   const handleBookNow = () => {
-    if (!user) { router.push("/login"); return; }
+    if (!user) {
+      router.push(`/login?callbackUrl=/tickets/${ticketId}`);
+      return;
+    }
     setIsOpen(true);
   };
 
